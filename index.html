@@ -193,11 +193,12 @@ function buildLevel(idx) {
   let entry = null, best = 1e9;
   for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (validFns[0](i, j)) { const d = Math.hypot(cx(i), cx(j)); if (d < best) { best = d; entry = [i, j]; } }
 
-  level = { def, c, boxes: [], floors: [], exitDir: null, start: new THREE.Vector3(cx(entry[0]), def.floors[0] + BR + 0.5, cx(entry[1])) };
+  level = { def, c, boxes: [], floors: [], exitDir: null, start: new THREE.Vector3(cx(entry[0]), def.floors[0] + BR + 0.5, cx(entry[1])), entries: [] };
   const linkKey = (a, b, c2, d) => (a < c2 || (a === c2 && b < d)) ? `${a},${b}|${c2},${d}` : `${c2},${d}|${a},${b}`;
 
   for (let k = 0; k < F; k++) {
     const h = def.floors[k], valid = validFns[k], kk = (i, j) => i * N + j;
+    level.entries.push(new THREE.Vector3(cx(entry[0]), h + BR + 0.25, cx(entry[1])));
     const dist = new Map([[kk(...entry), 0]]), links = new Set(), stack = [entry];
     while (stack.length) {
       const [i, j] = stack[stack.length - 1];
@@ -237,6 +238,15 @@ function buildLevel(idx) {
     if (k < F - 1) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(c * 0.4, 0.022, 8, 40), new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0xff9a1f, emissiveIntensity: 1.2 }));
       ring.rotation.x = Math.PI / 2; ring.position.set(cx(target[0]), h + 0.01, cx(target[1])); levelGroup.add(ring); floorInfo.marker = ring;
+      // 구멍 아래 통로: 떨어지는 구슬이 옆으로 날아가 아래층 벽을 넘지 않게 사방을 막는다.
+      // 아래쪽은 구슬이 굴러 나갈 만큼만 비워 둔다 (아래층 벽보다 낮게).
+      const x = cx(target[0]), z = cx(target[1]), y0 = def.floors[k + 1] + 2 * BR + 0.05, y1 = h - FLOOR_T, sl = [];
+      box(sl, x - c / 2 - WALL_T / 2, y0, z - c / 2, x - c / 2 + WALL_T / 2, y1, z + c / 2, 'wall');
+      box(sl, x + c / 2 - WALL_T / 2, y0, z - c / 2, x + c / 2 + WALL_T / 2, y1, z + c / 2, 'wall');
+      box(sl, x - c / 2, y0, z - c / 2 - WALL_T / 2, x + c / 2, y1, z - c / 2 + WALL_T / 2, 'wall');
+      box(sl, x - c / 2, y0, z + c / 2 - WALL_T / 2, x + c / 2, y1, z + c / 2 + WALL_T / 2, 'wall');
+      const shaftMat = new THREE.MeshPhysicalMaterial({ color: 0xffb347, roughness: 0.2, transparent: true, opacity: 0.18, depthWrite: false });
+      levelGroup.add(instanced(sl, shaftMat)); level.boxes.push(...sl);
     } else {
       // 출구 홈통: 출구 칸에서 구체 밖까지
       const [di, dj] = exitIJ, x = cx(target[0]), z = cx(target[1]);
@@ -361,7 +371,7 @@ function winSound() { if (!actx) return; const t = actx.currentTime; [784, 988, 
 let lvlIdx = 0, tStart = 0, tNow = 0, curFloor = 0;
 const timeEl = document.getElementById('time');
 function resetBall() {
-  p.copy(level.start); v.set(0, 0, 0); escaped = false; curFloor = 0; camY = level.floors[0].h; tStart = performance.now(); tNow = 0;
+  p.copy(level.start); v.set(0, 0, 0); escaped = false; curFloor = 0; standFloor = 0; lostT = 0; camY = level.floors[0].h; tStart = performance.now(); tNow = 0;
 }
 function startLevel(i) { lvlIdx = i; buildLevel(i); resetBall(); document.getElementById('lvlMax').textContent = LEVELS.length; }
 function bestKey(i) { return 'marble-best-' + i; }
@@ -391,7 +401,7 @@ document.getElementById('againBtn').addEventListener('click', () => { document.g
 
 // ---------- 화면 맞추기 ----------
 const camBase = new THREE.Vector3(), tmpCam = new THREE.Vector3();
-let camY = 0;
+let camY = 0, lostT = 0, standFloor = 0;
 function resize() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false);
   camera.aspect = w / h;
@@ -467,6 +477,11 @@ function frame(now) {
     // 그림자
     let top = -Infinity;
     for (const b of level.boxes) if (b.kind === 'floor' && b.max.y <= p.y && p.x >= b.min.x && p.x <= b.max.x && p.z >= b.min.z && p.z <= b.max.z && b.max.y > top) top = b.max.y;
+    // 안전장치: 미로 밖(발밑에 바닥이 없는 곳)에 1.2초 넘게 있으면 지금 층 입구로 되돌린다
+    if (started && !escaped && top === -Infinity) {
+      lostT += dt;
+      if (lostT > 1.2) { p.copy(level.entries[standFloor]); v.set(0, 0, 0); lostT = 0; showToast('구슬이 미로 밖으로 빠져서 <b>이 층 입구</b>로 돌려놨어요'); }
+    } else { lostT = 0; if (top > -Infinity && p.y - BR - top < 0.05) standFloor = curFloor; }
     if (top > -Infinity && !escaped) { shadow.visible = true; shadow.position.set(p.x, top + 0.004, p.z); const gap = p.y - BR - top; shadow.material.opacity = Math.max(0, 0.5 - gap * 0.5); shadow.scale.setScalar(1 + gap * 0.6); }
     else shadow.visible = false;
   }
