@@ -110,8 +110,9 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 const R = 3;            // 유리 구체 반지름
 const BR = 0.12;        // 쇠구슬 반지름
 const WALL_H = 0.32, WALL_T = 0.06, FLOOR_T = 0.06;
-const G = 9.8 * 0.9;
+const G = 9.8 * 2.3;   // 실제 구슬처럼 빠르게 반응
 const MAX_TILT = THREE.MathUtils.degToRad(32);
+const MAX_GYRO = THREE.MathUtils.degToRad(60);
 const LEVELS = [
   { cell: 0.78, floors: [0.55, -0.75], seed: 7 },
   { cell: 0.62, floors: [1.1, 0.0, -1.1], seed: 21 },
@@ -280,8 +281,8 @@ const EXIT_COS = Math.cos(0.15);
 
 function stepPhysics(dt) {
   v.addScaledVector(gLocal, dt);
-  v.multiplyScalar(1 - 0.35 * dt);
-  if (v.length() > 7) v.setLength(7);
+  v.multiplyScalar(1 - 0.18 * dt);
+  if (v.length() > 11) v.setLength(11);
   p.addScaledVector(v, dt);
   let impact = 0;
   for (const b of level.boxes) {
@@ -310,18 +311,26 @@ function stepPhysics(dt) {
 
 // ---------- 입력 ----------
 let started = false, hasGyro = false, base = null;
-const sensor = { x: 0, z: 0 }, drag = { on: false, x: 0, z: 0 }, keys = { x: 0, z: 0 };
+const sensor = new THREE.Vector3(0, -1, 0), gDev = new THREE.Vector3(), qBase = new THREE.Quaternion(), DEV_DOWN = new THREE.Vector3(0, 0, -1);
+const drag = { on: false, x: 0, z: 0 }, keys = { x: 0, z: 0 };
 const tilt = { x: 0, z: 0 };
+const DOWN = new THREE.Vector3(0, -1, 0), tmpG = new THREE.Vector3(), gTarget = new THREE.Vector3(), gNow = new THREE.Vector3(0, -1, 0);
+let visK = 1;
 const clampT = a => Math.max(-MAX_TILT, Math.min(MAX_TILT, a));
 const wrap = a => ((a + 180) % 360 + 360) % 360 - 180;
 
 window.addEventListener('deviceorientation', e => {
   if (e.beta == null || e.gamma == null) return;
   if (!hasGyro) { hasGyro = true; updateHint(); }
-  if (!base) base = { b: e.beta, g: e.gamma };
-  const db = wrap(e.beta - base.b), dg = e.gamma - base.g;
-  sensor.x = clampT(THREE.MathUtils.degToRad(db * 1.15));
-  sensor.z = clampT(-THREE.MathUtils.degToRad(dg * 1.15));
+  // 폰 화면 기준 실제 중력 방향
+  const b = THREE.MathUtils.degToRad(e.beta), g = THREE.MathUtils.degToRad(e.gamma);
+  gDev.set(Math.cos(b) * Math.sin(g), -Math.sin(b), -Math.cos(b) * Math.cos(g));
+  if (!base) { base = true; qBase.setFromUnitVectors(gDev, DEV_DOWN); }
+  gDev.applyQuaternion(qBase);
+  // 화면 오른쪽=x, 화면 위쪽=안쪽(-z), 화면 바깥=위(+y)
+  sensor.set(gDev.x, gDev.z, -gDev.y).normalize();
+  const ang = sensor.angleTo(DOWN);
+  if (ang > MAX_GYRO) { tmpG.set(sensor.x, 0, sensor.z).normalize(); sensor.copy(DOWN).multiplyScalar(Math.cos(MAX_GYRO)).addScaledVector(tmpG, Math.sin(MAX_GYRO)); }
 });
 
 const joy = document.getElementById('joy'), knob = joy.querySelector('b');
@@ -433,15 +442,23 @@ function frame(now) {
   let tx = 0, tz = 0;
   if (drag.on) { tx = drag.x; tz = drag.z; }
   else if (keys.x || keys.z) { tx = keys.x * MAX_TILT * 0.8; tz = keys.z * MAX_TILT * 0.8; }
-  else if (hasGyro) { tx = sensor.x; tz = sensor.z; }  if (!started) { tx = Math.sin(now / 1400) * 0.18; tz = Math.cos(now / 1700) * 0.18; }
-  const k = Math.min(1, dt * 12); tilt.x += (tx - tilt.x) * k; tilt.z += (tz - tilt.z) * k;
-  eul.set(tilt.x, 0, tilt.z, 'XYZ'); q.setFromEuler(eul); world.quaternion.copy(q);
-  qInv.copy(q).invert(); gLocal.set(0, -G, 0).applyQuaternion(qInv);
+  const useGyro = started && hasGyro && !drag.on && !(keys.x || keys.z);
+  if (!started) { tx = Math.sin(now / 1400) * 0.18; tz = Math.cos(now / 1700) * 0.18; }
+  if (useGyro) gTarget.copy(sensor);
+  else { tilt.x += (tx - tilt.x) * Math.min(1, dt * 14); tilt.z += (tz - tilt.z) * Math.min(1, dt * 14);
+    eul.set(tilt.x, 0, tilt.z, 'XYZ'); q.setFromEuler(eul); qInv.copy(q).invert(); gTarget.copy(DOWN).applyQuaternion(qInv); }
+  // 센서는 거의 바로 반영 (떨림만 살짝 거름)
+  gNow.lerp(gTarget, useGyro ? Math.min(1, dt * 40) : 1).normalize();
+  gLocal.copy(gNow).multiplyScalar(G);
+  // 화면 속 구체는 폰과 같이 움직이는 느낌이 나게 덜 기울임
+  visK += ((useGyro ? 0.45 : 1) - visK) * Math.min(1, dt * 6);
+  q.setFromUnitVectors(gNow, DOWN); qInv.identity().slerp(q, visK); world.quaternion.copy(qInv);
 
   if (started) {
     acc += dt; let impact = 0; const h = 1 / 240;
     while (acc >= h) { impact = Math.max(impact, stepPhysics(h)); acc -= h; }
     if (impact > 0.35) hitSound(impact);
+    if (impact > 1.6 && navigator.vibrate) { try { navigator.vibrate(Math.min(25, 6 + impact * 3)); } catch (_) {} }
     // 굴러가는 회전
     axis.copy(gLocal).normalize().negate().cross(v); const sp = axis.length();
     if (sp > 1e-4) { rq.setFromAxisAngle(axis.divideScalar(sp), sp * dt / BR); ball.quaternion.premultiply(rq); }
