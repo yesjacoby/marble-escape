@@ -45,6 +45,10 @@ button.primary{background:var(--accent);color:#1a1206;border-color:var(--accent)
 #joy{position:fixed;width:110px;height:110px;margin:-55px 0 0 -55px;border:1px solid var(--line);border-radius:50%;pointer-events:none}
 #joy b{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--glass);opacity:.5}
 [hidden]{display:none!important}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%);max-width:calc(100% - 32px);width:max-content;
+  background:var(--panel);border:1px solid var(--accent);color:var(--ink);padding:10px 16px;font-size:14px;text-align:center;pointer-events:none;opacity:0;transition:opacity .3s}
+#toast.show{opacity:1}
+#toast b{color:var(--accent);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -70,12 +74,13 @@ button.primary{background:var(--accent);color:#1a1206;border-color:var(--accent)
 </div>
 
 <div id="joy" hidden><b></b></div>
+<div id="toast" role="status"></div>
 
 <div class="overlay" id="startOv">
   <div class="card">
     <div class="tag">유리 구체 미로</div>
     <h1>쇠구슬 탈출</h1>
-    <p>구체 안 층마다 미로가 있어요. 폰을 기울여 쇠구슬을 주황 고리 구멍으로 떨어뜨리고, 맨 아래층 출구로 구슬을 구체 밖까지 빼내면 성공입니다.</p>
+    <p>구체 안에 미로가 여러 층 쌓여 있어요. 주황 고리 구멍에 넣으면 구슬이 한 층 아래로 떨어지고, 그 층에서 다시 다음 주황 고리를 찾아가요. 맨 아래층의 주황 고리 출구로 구슬을 구체 밖까지 빼내면 성공입니다.</p>
     <p>폰을 편하게 든 각도가 수평이 돼요. 기울기 센서가 없으면 화면을 끌어서 기울입니다.</p>
     <button class="primary" id="startBtn" type="button">시작하기</button>
   </div>
@@ -356,7 +361,7 @@ function winSound() { if (!actx) return; const t = actx.currentTime; [784, 988, 
 let lvlIdx = 0, tStart = 0, tNow = 0, curFloor = 0;
 const timeEl = document.getElementById('time');
 function resetBall() {
-  p.copy(level.start); v.set(0, 0, 0); escaped = false; curFloor = 0; tStart = performance.now(); tNow = 0;
+  p.copy(level.start); v.set(0, 0, 0); escaped = false; curFloor = 0; camY = level.floors[0].h; tStart = performance.now(); tNow = 0;
 }
 function startLevel(i) { lvlIdx = i; buildLevel(i); resetBall(); document.getElementById('lvlMax').textContent = LEVELS.length; }
 function bestKey(i) { return 'marble-best-' + i; }
@@ -385,13 +390,21 @@ document.getElementById('nextBtn').addEventListener('click', () => { document.ge
 document.getElementById('againBtn').addEventListener('click', () => { document.getElementById('winOv').hidden = true; resetBall(); });
 
 // ---------- 화면 맞추기 ----------
+const camBase = new THREE.Vector3(), tmpCam = new THREE.Vector3();
+let camY = 0;
 function resize() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const vf = THREE.MathUtils.degToRad(camera.fov), hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
   const dist = (R + 0.45) / Math.sin(Math.min(vf, hf) / 2);
-  camera.position.set(0, 0.68, 0.73).normalize().multiplyScalar(dist);
+  camBase.set(0, 0.68, 0.73).normalize().multiplyScalar(dist);
+  camera.position.copy(camBase);
   camera.lookAt(0, -0.25, 0); camera.updateProjectionMatrix();
+}
+let toastTimer = 0;
+function showToast(html) {
+  const t = document.getElementById('toast'); t.innerHTML = html; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
 }
 addEventListener('resize', resize); resize();
 
@@ -431,13 +444,25 @@ function frame(now) {
   if (level) {
     let f = 0; level.floors.forEach(fi => { if (p.y < fi.h - 0.05) f++; });
     f = Math.min(f, level.floors.length - 1);
-    if (f !== curFloor) { if (f > curFloor) dropSound(); curFloor = f; }
+    if (f !== curFloor) {
+      if (f > curFloor) {
+        dropSound();
+        const lastF = f === level.floors.length - 1;
+        showToast(lastF ? `<b>마지막 층!</b> 주황 고리 출구로 구슬을 밖으로 굴려 내보내세요` : `<b>${f + 1}층</b>으로 내려왔어요 · 이 층의 주황 고리를 찾으세요`);
+      }
+      curFloor = f;
+    }
     level.floors.forEach((fi, i) => {
       const above = i < curFloor;
-      fi.floorMat.opacity += ((above ? 0.05 : i === curFloor ? 0.38 : 0.22) - fi.floorMat.opacity) * k;
-      fi.wallMat.opacity += ((above ? 0.1 : i === curFloor ? 0.95 : 0.5) - fi.wallMat.opacity) * k;
-      if (fi.marker) fi.marker.scale.setScalar(1 + Math.sin(now / 260) * 0.08);
+      fi.floorMat.opacity += ((above ? 0.02 : i === curFloor ? 0.38 : 0.16) - fi.floorMat.opacity) * k;
+      fi.wallMat.opacity += ((above ? 0.04 : i === curFloor ? 0.95 : 0.35) - fi.wallMat.opacity) * k;
+      if (fi.marker) { fi.marker.visible = !above; fi.marker.scale.setScalar((i === curFloor ? 1.15 : 1) + Math.sin(now / 260) * 0.1); }
     });
+    // 카메라가 지금 층을 따라 내려간다
+    const fy = level.floors[curFloor].h;
+    camY += (fy - camY) * Math.min(1, dt * 3);
+    camera.position.copy(camBase).add(tmpCam.set(0, camY * 0.6, 0));
+    camera.lookAt(0, camY - 0.25, 0);
     document.querySelectorAll('#floors i').forEach((el, i) => el.classList.toggle('on', i === curFloor));
     // 그림자
     let top = -Infinity;
