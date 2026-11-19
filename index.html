@@ -7,49 +7,61 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-/* 전체 화면 3D 무대 위에 얇은 HUD. 일부러 어두운 한 가지 룩만 쓴다 */
+/* 2D 만화 룩: 크림색 종이 + 망점, 굵은 잉크 선, 각진 상자 */
 :root{
-  --bg:#0a0f15; --bg2:#142030; --ink:#e9eff5; --dim:#8797a8;
-  --glass:#a9dcff; --accent:#ffb347; --panel:rgba(12,18,26,.82); --line:rgba(169,220,255,.22);
+  --paper:#fff3dc; --dot:rgba(36,31,51,.07); --ink:#241f33; --dim:#6b6377;
+  --accent:#ff7a59; --pop:#ffd34e; --mint:#8ee6c9;
   --f-display:"Black Han Sans","IBM Plex Sans KR",system-ui,sans-serif;
   --f-body:"IBM Plex Sans KR",system-ui,-apple-system,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
-  color-scheme:dark;
+  color-scheme:light;
 }
-html,body{height:100%;margin:0;overflow:hidden;background:radial-gradient(120% 80% at 50% 30%,var(--bg2),var(--bg));color:var(--ink);font-family:var(--f-body);
+html,body{height:100%;margin:0;overflow:hidden;background-color:var(--paper);
+  background-image:radial-gradient(var(--dot) 1.6px,transparent 1.8px);background-size:12px 12px;color:var(--ink);font-family:var(--f-body);
   touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block}
 .hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));
   display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
-.tag{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.hud>div{background:#fff;border:2.5px solid var(--ink);box-shadow:3px 3px 0 var(--ink);padding:6px 10px}
+.tag{font-family:var(--f-display);font-size:13px;letter-spacing:.04em;color:var(--ink)}
 .big{font-family:var(--f-mono);font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
 .floors{display:flex;gap:4px;margin-top:6px}
-.floors i{width:18px;height:5px;background:var(--line)}
-.floors i.on{background:var(--glass)}
+.floors i{width:18px;height:7px;background:#fff;border:2px solid var(--ink)}
+.floors i.on{background:var(--accent)}
 .bar{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));
   display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
-.hint{font-size:13px;color:var(--dim);text-align:center;text-wrap:balance}
-.btns{display:flex;gap:8px;pointer-events:auto}
-button{font:600 14px var(--f-body);color:var(--ink);background:var(--panel);border:1px solid var(--line);padding:10px 14px;border-radius:0;cursor:pointer}
-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button.primary{background:var(--accent);color:#1a1206;border-color:var(--accent);font-size:17px;padding:14px 28px}
+.hint{font-size:13px;font-weight:600;color:var(--ink);text-align:center;text-wrap:balance;background:#fff;border:2px solid var(--ink);padding:4px 10px}
+.btns{display:flex;gap:10px;pointer-events:auto}
+button{font:700 14px var(--f-body);color:var(--ink);background:#fff;border:2.5px solid var(--ink);box-shadow:3px 3px 0 var(--ink);padding:10px 14px;border-radius:0;cursor:pointer}
+button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+button.primary{background:var(--accent);color:#fff;font-family:var(--f-display);font-weight:400;font-size:20px;padding:14px 30px;box-shadow:5px 5px 0 var(--ink);
+  -webkit-text-stroke:1px var(--ink);animation:breathe 1.6s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.06)}}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));
-  background:rgba(6,10,15,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
-.card{max-width:340px;width:100%;background:var(--panel);border:1px solid var(--line);padding:26px 22px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+  background:rgba(255,243,220,.6)}
+.card{max-width:340px;width:100%;background:#fff;border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);padding:26px 22px;display:flex;flex-direction:column;gap:14px;align-items:flex-start;transform:rotate(-1deg)}
 .card h1,.card h2{font-family:var(--f-display);font-weight:400;margin:0;line-height:1.05;text-wrap:balance}
-.card h1{font-size:44px;letter-spacing:.01em}
-.card h2{font-size:34px;color:var(--accent)}
+.card h1{font-size:48px;color:var(--pop);-webkit-text-stroke:2px var(--ink);text-shadow:4px 4px 0 var(--ink)}
+.card h2{font-size:40px;color:var(--accent);-webkit-text-stroke:2px var(--ink);text-shadow:3px 3px 0 var(--ink)}
+.card .tag{background:var(--mint);border:2px solid var(--ink);padding:2px 8px}
 .card p{margin:0;font-size:14px;line-height:1.6;color:var(--dim)}
-.card .row{display:flex;gap:8px;flex-wrap:wrap}
+.card .row{display:flex;gap:10px;flex-wrap:wrap}
 .stat{font-family:var(--f-mono);font-size:15px;color:var(--ink)}
-#joy{position:fixed;width:110px;height:110px;margin:-55px 0 0 -55px;border:1px solid var(--line);border-radius:50%;pointer-events:none}
-#joy b{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--glass);opacity:.5}
+#joy{position:fixed;width:110px;height:110px;margin:-55px 0 0 -55px;border:2.5px dashed var(--ink);border-radius:50%;pointer-events:none}
+#joy b{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--pop);border:2.5px solid var(--ink)}
 [hidden]{display:none!important}
-#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%);max-width:calc(100% - 32px);width:max-content;
-  background:var(--panel);border:1px solid var(--accent);color:var(--ink);padding:10px 16px;font-size:14px;text-align:center;pointer-events:none;opacity:0;transition:opacity .3s}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 78px);transform:translateX(-50%);max-width:calc(100% - 32px);width:max-content;
+  background:#fff;border:2.5px solid var(--ink);box-shadow:4px 4px 0 var(--ink);color:var(--ink);padding:10px 16px;font-size:14px;text-align:center;pointer-events:none;opacity:0;transition:opacity .3s}
 #toast.show{opacity:1}
-#toast b{color:var(--accent);font-weight:600}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+#toast b{color:var(--accent);font-weight:700}
+/* 만화 효과 글자 */
+.fx{position:fixed;left:0;top:0;pointer-events:none;font-family:var(--f-display);font-size:30px;color:var(--pop);-webkit-text-stroke:1.5px var(--ink);
+  text-shadow:3px 3px 0 var(--ink);white-space:nowrap;animation:fxPop .75s ease-out forwards}
+.fx.blue{color:var(--mint)} .fx.red{color:var(--accent)}
+@keyframes fxPop{0%{transform:translate(-50%,-50%) scale(.3) rotate(var(--r));opacity:0}20%{transform:translate(-50%,-80%) scale(1.15) rotate(var(--r));opacity:1}
+  100%{transform:translate(-50%,-150%) scale(1) rotate(var(--r));opacity:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <canvas id="c" aria-label="투명 구체 안의 미로"></canvas>
@@ -78,7 +90,7 @@ button.primary{background:var(--accent);color:#1a1206;border-color:var(--accent)
 
 <div class="overlay" id="startOv">
   <div class="card">
-    <div class="tag">유리 구체 미로</div>
+    <div class="tag">유리 구슬 미로</div>
     <h1>쇠구슬 탈출</h1>
     <p>구체 안에 미로가 여러 층 쌓여 있어요. 주황 고리 구멍에 넣으면 구슬이 한 층 아래로 떨어지고, 그 층에서 다시 다음 주황 고리를 찾아가요. 맨 아래층의 주황 고리 출구로 구슬을 구체 밖까지 빼내면 성공입니다.</p>
     <p>폰을 편하게 든 각도가 수평이 돼요. 기울기 센서가 없으면 화면을 끌어서 기울입니다.</p>
@@ -118,42 +130,76 @@ const LEVELS = [
   { cell: 0.62, floors: [1.1, 0.0, -1.1], seed: 21 },
   { cell: 0.5,  floors: [1.15, 0.0, -1.15], seed: 1999 },
 ];
-const FLOOR_COLORS = [0x6fd3ff, 0xb59cff, 0xffb347];
+const FLOOR_COLORS = [0x8ee6c9, 0xffa8c5, 0xffd34e];   // 민트, 딸기우유, 바나나
 
 // ---------- 렌더러 ----------
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMapping = THREE.NoToneMapping;
 const scene = new THREE.Scene();
 const pmrem = new THREE.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+void pmrem; void RoomEnvironment;
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x101820, 0.6));
-const key = new THREE.DirectionalLight(0xffffff, 1.2); key.position.set(3, 8, 4); scene.add(key);
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(3, 8, 5); scene.add(key);
+// 툰 명암: 3단으로 딱 끊는다
+const toonRamp = new THREE.DataTexture(new Uint8Array([110, 190, 255]), 3, 1, THREE.RedFormat);
+toonRamp.minFilter = toonRamp.magFilter = THREE.NearestFilter; toonRamp.needsUpdate = true;
+const INK = 0x241f33;
+const toon = (color, extra = {}) => new THREE.MeshToonMaterial({ color, gradientMap: toonRamp, ...extra });
 
 const world = new THREE.Group(); scene.add(world);   // 기울어지는 구체 전체
 const levelGroup = new THREE.Group(); world.add(levelGroup);
 
-// 유리 구체
-const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xd8efff, metalness: 0, roughness: 0.04, transparent: true, opacity: 0.1,
-  clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.6, depthWrite: false });
+// 유리 구체: 아주 옅은 하늘색 + 가장자리만 굵은 잉크선 (만화 원 테두리)
+const glassMat = new THREE.MeshBasicMaterial({ color: 0xbfe9ff, transparent: true, opacity: 0.12, depthWrite: false });
 const glass = new THREE.Mesh(new THREE.SphereGeometry(R, 72, 54), glassMat); glass.renderOrder = 10; world.add(glass);
 const rimMat = new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  uniforms: { col: { value: new THREE.Color(0x8fd0ff) } },
+  transparent: true, depthWrite: false,
+  uniforms: { ink: { value: new THREE.Color(INK) }, sky: { value: new THREE.Color(0x7fd0ff) } },
   vertexShader: `varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix*vec4(position,1.); vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
-  fragmentShader: `uniform vec3 col; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.-abs(dot(vN,vV)),3.); gl_FragColor = vec4(col*f*0.9, f); }`
+  fragmentShader: `uniform vec3 ink; uniform vec3 sky; varying vec3 vN; varying vec3 vV; void main(){
+    float f = 1.-abs(dot(vN,vV));
+    if (f > 0.93) { gl_FragColor = vec4(ink, 1.); return; }
+    if (f > 0.72) { gl_FragColor = vec4(sky, 0.35); return; }
+    float hl = smoothstep(0.03, 0.0, abs(length(vN.xy - vec2(-0.48, 0.5)) - 0.2)) * step(vN.x, -0.3) * step(0.4, vN.y);
+    gl_FragColor = vec4(1., 1., 1., hl * 0.95);
+  }`
 });
 const rim = new THREE.Mesh(new THREE.SphereGeometry(R * 1.002, 72, 54), rimMat); rim.renderOrder = 11; world.add(rim);
-const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.025, 8, 128), new THREE.MeshStandardMaterial({ color: 0x9fb4c8, metalness: 0.8, roughness: 0.3, transparent: true, opacity: 0.5 }));
+const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.03, 8, 128), new THREE.MeshBasicMaterial({ color: INK, transparent: true, opacity: 0.35 }));
 seam.rotation.x = Math.PI / 2; world.add(seam);
 
 // 쇠구슬
-const ball = new THREE.Mesh(new THREE.SphereGeometry(BR, 40, 28), new THREE.MeshStandardMaterial({ color: 0xe3e7ec, metalness: 1, roughness: 0.12, envMapIntensity: 1.4 }));
+const ball = new THREE.Mesh(new THREE.SphereGeometry(BR, 40, 28), toon(0xd9dde6));
 ball.renderOrder = 5; world.add(ball);
-const shadow = new THREE.Mesh(new THREE.CircleGeometry(BR * 1.15, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false }));
+const ballLine = new THREE.Mesh(new THREE.SphereGeometry(BR * 1.16, 32, 20), new THREE.MeshBasicMaterial({ color: INK, side: THREE.BackSide }));
+world.add(ballLine);
+// 얼굴: 구르는 구슬과 따로, 늘 화면 쪽 + 가는 방향을 본다
+function faceTex(kind) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d');
+  g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#241f33'; g.fillStyle = '#241f33'; g.lineWidth = 11;
+  g.save(); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(34, 30, 13, 8, -0.6, 0, Math.PI * 2); g.fill(); g.restore();
+  if (kind === 'dizzy') {
+    for (const x of [44, 84]) { g.beginPath(); g.moveTo(x - 10, 50); g.lineTo(x + 10, 70); g.moveTo(x + 10, 50); g.lineTo(x - 10, 70); g.stroke(); }
+    g.beginPath(); g.moveTo(48, 96); g.quadraticCurveTo(56, 88, 64, 96); g.quadraticCurveTo(72, 104, 80, 96); g.stroke();
+  } else {
+    for (const x of [46, 82]) { g.beginPath(); g.ellipse(x, 60, 11, kind === 'wow' ? 16 : 14, 0, 0, Math.PI * 2); g.fill();
+      g.save(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 3, 55, 3.2, 0, Math.PI * 2); g.fill(); g.restore(); }
+    if (kind === 'wow') { g.beginPath(); g.ellipse(64, 95, 8, 10, 0, 0, Math.PI * 2); g.fill(); }
+    else { g.beginPath(); g.arc(64, 84, 13, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke(); }
+    g.save(); g.globalAlpha = 0.45; g.fillStyle = '#ff7a8a'; for (const x of [28, 100]) { g.beginPath(); g.ellipse(x, 80, 9, 5, 0, 0, Math.PI * 2); g.fill(); } g.restore();
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const FACES = { happy: faceTex('happy'), wow: faceTex('wow'), dizzy: faceTex('dizzy') };
+const face = new THREE.Sprite(new THREE.SpriteMaterial({ map: FACES.happy, transparent: true }));
+face.scale.setScalar(BR * 1.9); face.renderOrder = 6; world.add(face);
+let faceKind = 'happy', dizzyT = 0;
+const camLocal = new THREE.Vector3(), faceDir = new THREE.Vector3();
+
+const shadow = new THREE.Mesh(new THREE.CircleGeometry(BR * 1.15, 24), new THREE.MeshBasicMaterial({ color: INK, transparent: true, opacity: 0.5, depthWrite: false }));
 shadow.rotation.x = -Math.PI / 2; world.add(shadow);
 
 // ---------- 레벨 생성 ----------
@@ -169,13 +215,14 @@ function box(list, x0, y0, z0, x1, y1, z1, kind) {
   const b = { min: new THREE.Vector3(Math.min(x0, x1), Math.min(y0, y1), Math.min(z0, z1)), max: new THREE.Vector3(Math.max(x0, x1), Math.max(y0, y1), Math.max(z0, z1)), kind };
   list.push(b); return b;
 }
-function instanced(boxes, mat) {
+function instanced(boxes, mat, grow = 0) {
   const m = new THREE.InstancedMesh(boxGeo, mat, boxes.length);
   const o = new THREE.Object3D();
   boxes.forEach((b, i) => {
     o.position.set((b.min.x + b.max.x) / 2, (b.min.y + b.max.y) / 2, (b.min.z + b.max.z) / 2);
     o.scale.set(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z);
-    if (b.kind === 'floor') { o.scale.x -= 0.012; o.scale.z -= 0.012; }
+    if (b.kind === 'floor' && !grow) { o.scale.x -= 0.012; o.scale.z -= 0.012; }
+    o.scale.addScalar(grow * 2);
     o.updateMatrix(); m.setMatrixAt(i, o.matrix);
   });
   return m;
@@ -232,12 +279,13 @@ function buildLevel(idx) {
       }
     }
     const color = FLOOR_COLORS[k % FLOOR_COLORS.length];
-    const floorMat = new THREE.MeshPhysicalMaterial({ color, metalness: 0, roughness: 0.25, transparent: true, opacity: 0.32, depthWrite: false, envMapIntensity: 0.8 });
-    const wallMat = new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.35, transparent: true, opacity: 0.9, emissive: color, emissiveIntensity: 0.12 });
-    const floorInfo = { h, floorMat, wallMat, marker: null };
+    const floorMat = toon(new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.5), { transparent: true, opacity: 0.6, depthWrite: false });
+    const wallMat = toon(color, { transparent: true, opacity: 1 });
+    const lineMat = new THREE.MeshBasicMaterial({ color: INK, side: THREE.BackSide, transparent: true, opacity: 1 });
+    const floorInfo = { h, floorMat, wallMat, lineMat, marker: null };
 
     if (k < F - 1) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(c * 0.4, 0.022, 8, 40), new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0xff9a1f, emissiveIntensity: 1.2 }));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(c * 0.4, 0.04, 8, 40), toon(0xff7a59, { emissive: 0xff7a59, emissiveIntensity: 0.35 }));
       ring.rotation.x = Math.PI / 2; ring.position.set(cx(target[0]), h + 0.01, cx(target[1])); levelGroup.add(ring); floorInfo.marker = ring;
       // 구멍 아래 통로: 떨어지는 구슬이 옆으로 날아가 아래층 벽을 넘지 않게 사방을 막는다.
       // 아래쪽은 구슬이 굴러 나갈 만큼만 비워 둔다 (아래층 벽보다 낮게).
@@ -246,7 +294,7 @@ function buildLevel(idx) {
       box(sl, x + c / 2 - WALL_T / 2, y0, z - c / 2, x + c / 2 + WALL_T / 2, y1, z + c / 2, 'wall');
       box(sl, x - c / 2, y0, z - c / 2 - WALL_T / 2, x + c / 2, y1, z - c / 2 + WALL_T / 2, 'wall');
       box(sl, x - c / 2, y0, z + c / 2 - WALL_T / 2, x + c / 2, y1, z + c / 2 + WALL_T / 2, 'wall');
-      const shaftMat = new THREE.MeshPhysicalMaterial({ color: 0xffb347, roughness: 0.2, transparent: true, opacity: 0.18, depthWrite: false });
+      const shaftMat = toon(0xff7a59, { transparent: true, opacity: 0.22, depthWrite: false });
       levelGroup.add(instanced(sl, shaftMat)); level.boxes.push(...sl);
     } else {
       // 출구 홈통: 출구 칸에서 구체 밖까지
@@ -261,10 +309,11 @@ function buildLevel(idx) {
       const y = h + BR, a = Math.sqrt(R * R - y * y - lat * lat);
       const E = di ? new THREE.Vector3(sgn * a, y, lat) : new THREE.Vector3(lat, y, sgn * a);
       level.exitDir = E.clone().normalize();
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.035, 10, 48), new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0xff9a1f, emissiveIntensity: 1.4 }));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.06, 10, 48), toon(0xff7a59, { emissive: 0xff7a59, emissiveIntensity: 0.35 }));
       ring.position.copy(E); ring.lookAt(E.clone().multiplyScalar(2)); levelGroup.add(ring); floorInfo.marker = ring;
     }
     levelGroup.add(instanced(fl, floorMat)); levelGroup.add(instanced(wl, wallMat));
+    levelGroup.add(instanced(wl, lineMat, 0.018));   // 만화 외곽선 (뒷면을 살짝 키워 검게)
     level.boxes.push(...fl, ...wl);
     level.floors.push(floorInfo);
     entry = target;
@@ -421,6 +470,17 @@ function resize() {
   camera.lookAt(0, -0.25, 0); camera.updateProjectionMatrix();
 }
 let toastTimer = 0;
+// 구슬 위치에 만화 효과 글자를 띄운다
+const fxPos = new THREE.Vector3();
+let fxLast = 0;
+function comicFx(text, tone = '') {
+  const t = performance.now(); if (t - fxLast < 250) return; fxLast = t;
+  fxPos.copy(p); world.localToWorld(fxPos); fxPos.project(camera);
+  const el = document.createElement('div'); el.className = 'fx ' + tone; el.textContent = text;
+  el.style.left = ((fxPos.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - fxPos.y) / 2 * innerHeight - 20) + 'px';
+  el.style.setProperty('--r', (Math.random() * 24 - 12).toFixed(1) + 'deg');
+  document.body.appendChild(el); setTimeout(() => el.remove(), 800);
+}
 function showToast(html) {
   const t = document.getElementById('toast'); t.innerHTML = html; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
@@ -458,13 +518,22 @@ function frame(now) {
     acc += dt; let impact = 0; const h = 1 / 240;
     while (acc >= h) { impact = Math.max(impact, stepPhysics(h)); acc -= h; }
     if (impact > 0.35) hitSound(impact);
+    if (impact > 2.2) { comicFx(impact > 4 ? '쾅!' : '쿵!', 'red'); dizzyT = 0.7; }
     if (impact > 1.6 && navigator.vibrate) { try { navigator.vibrate(Math.min(25, 6 + impact * 3)); } catch (_) {} }
     // 굴러가는 회전
     axis.copy(gLocal).normalize().negate().cross(v); const sp = axis.length();
     if (sp > 1e-4) { rq.setFromAxisAngle(axis.divideScalar(sp), sp * dt / BR); ball.quaternion.premultiply(rq); }
     if (!escaped) tNow = (now - tStart) / 1000;
   }
-  ball.position.copy(p);
+  ball.position.copy(p); ballLine.position.copy(p);
+  // 얼굴은 카메라 쪽 + 굴러가는 쪽으로 살짝
+  camLocal.copy(camera.position); world.worldToLocal(camLocal);
+  faceDir.copy(camLocal).sub(p).normalize();
+  tmpG.set(v.x, 0, v.z); if (tmpG.lengthSq() > 0.04) faceDir.addScaledVector(tmpG.normalize(), 0.55).normalize();
+  face.position.copy(p).addScaledVector(faceDir, BR * 1.0);
+  dizzyT = Math.max(0, dizzyT - dt);
+  const fk = dizzyT > 0 ? 'dizzy' : (v.y < -1.6 || v.length() > 5) ? 'wow' : 'happy';
+  if (fk !== faceKind) { faceKind = fk; face.material.map = FACES[fk]; }
   timeEl.textContent = tNow.toFixed(2);
 
   // 지금 있는 층, 층 투명도
@@ -473,7 +542,7 @@ function frame(now) {
     f = Math.min(f, level.floors.length - 1);
     if (f !== curFloor) {
       if (f > curFloor) {
-        dropSound();
+        dropSound(); comicFx('슝~', 'blue');
         const lastF = f === level.floors.length - 1;
         showToast(lastF ? `<b>마지막 층!</b> 주황 고리 출구로 구슬을 밖으로 굴려 내보내세요` : `<b>${f + 1}층</b>으로 내려왔어요 · 이 층의 주황 고리를 찾으세요`);
       }
@@ -482,8 +551,10 @@ function frame(now) {
     const k = Math.min(1, dt * 12);
     level.floors.forEach((fi, i) => {
       const above = i < curFloor;
-      fi.floorMat.opacity += ((above ? 0.02 : i === curFloor ? 0.38 : 0.16) - fi.floorMat.opacity) * k;
-      fi.wallMat.opacity += ((above ? 0.04 : i === curFloor ? 0.95 : 0.35) - fi.wallMat.opacity) * k;
+      fi.floorMat.opacity += ((above ? 0.02 : i === curFloor ? 0.7 : 0.35) - fi.floorMat.opacity) * k;
+      fi.wallMat.opacity += ((above ? 0.04 : i === curFloor ? 1 : 0.45) - fi.wallMat.opacity) * k;
+      fi.lineMat.opacity += ((above ? 0.0 : i === curFloor ? 1 : 0.3) - fi.lineMat.opacity) * k;
+      fi.wallMat.depthWrite = fi.wallMat.opacity > 0.9; fi.lineMat.visible = fi.lineMat.opacity > 0.02;
       if (fi.marker) { fi.marker.visible = !above; fi.marker.scale.setScalar((i === curFloor ? 1.15 : 1) + Math.sin(now / 260) * 0.1); }
     });
     // 카메라가 지금 층을 따라 내려간다
