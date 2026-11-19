@@ -479,6 +479,7 @@ function frame(now) {
       }
       curFloor = f;
     }
+    const k = Math.min(1, dt * 12);
     level.floors.forEach((fi, i) => {
       const above = i < curFloor;
       fi.floorMat.opacity += ((above ? 0.02 : i === curFloor ? 0.38 : 0.16) - fi.floorMat.opacity) * k;
