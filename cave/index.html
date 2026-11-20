@@ -86,6 +86,8 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 // ---------- 기본 ----------
 const BR = 0.15;                          // 쇠구슬 반지름 (m)
 const MAX_TILT = THREE.MathUtils.degToRad(28);
+const GRAV = 9.8 * 0.5;   // 체감 중력: 느리고 묵직하게
+const DEAD = Math.sin(THREE.MathUtils.degToRad(2.5));   // 이만큼 이하 기울기엔 안 움직임(정지 마찰)
 const PIT = { x: 0, z: 3.2, hx: 1.6, hz: 1.1, d: 0.42 };
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -346,7 +348,7 @@ function collideBox(b) {
   tmp.copy(p).sub(cp); const d = tmp.length(); if (d >= BR) return 0;
   if (d < 1e-6) tmp.set(0, 1, 0); else tmp.divideScalar(d);
   p.copy(cp).addScaledVector(tmp, BR); const vn = v.dot(tmp);
-  if (vn < 0) { v.addScaledVector(tmp, -(1 + (-vn > 1 ? 0.3 : 0)) * vn); if (tmp.y > 0.6) grounded = 1; return -vn; }
+  if (vn < 0) { v.addScaledVector(tmp, -(1 + (-vn > 1.2 ? 0.15 : 0)) * vn); if (tmp.y > 0.6) grounded = 1; return -vn; }
   return 0;
 }
 function step(dt) {
@@ -360,22 +362,22 @@ function step(dt) {
   if (d < BR) {
     p.addScaledVector(nrm, BR - d);
     const vn = v.dot(nrm);
-    if (vn < 0) { const e = -vn > 1.2 ? 0.25 : 0; v.addScaledVector(nrm, -(1 + e) * vn); impact = Math.max(impact, -vn); }
+    if (vn < 0) { const e = -vn > 1.5 ? 0.12 : 0; v.addScaledVector(nrm, -(1 + e) * vn); impact = Math.max(impact, -vn); }
     grounded = 1;
   }
   for (const b of colliders.boxes) impact = Math.max(impact, collideBox(b));
   for (const c of colliders.cyl) {
     if (p.y - BR > c.top) continue;
     const dx = p.x - c.x, dz = p.z - c.z, dd = Math.hypot(dx, dz), m = c.r + BR;
-    if (dd < m) { const nx = dx / dd, nz = dz / dd; p.x = c.x + nx * m; p.z = c.z + nz * m; const vn = v.x * nx + v.z * nz; if (vn < 0) { v.x -= 1.3 * vn * nx; v.z -= 1.3 * vn * nz; impact = Math.max(impact, -vn); } }
+    if (dd < m) { const nx = dx / dd, nz = dz / dd; p.x = c.x + nx * m; p.z = c.z + nz * m; const vn = v.x * nx + v.z * nz; if (vn < 0) { v.x -= 1.15 * vn * nx; v.z -= 1.15 * vn * nz; impact = Math.max(impact, -vn); } }
   }
   for (const s of colliders.sph) {
     tmp.copy(p).sub(s.c); const dd = tmp.length(), m = s.r + BR;
-    if (dd < m) { tmp.divideScalar(dd); p.copy(s.c).addScaledVector(tmp, m); const vn = v.dot(tmp); if (vn < 0) { v.addScaledVector(tmp, -1.3 * vn); impact = Math.max(impact, -vn); } }
+    if (dd < m) { tmp.divideScalar(dd); p.copy(s.c).addScaledVector(tmp, m); const vn = v.dot(tmp); if (vn < 0) { v.addScaledVector(tmp, -1.15 * vn); impact = Math.max(impact, -vn); } }
   }
   // 굴림 저항 + 공기
-  if (grounded) v.multiplyScalar(1 - (v.lengthSq() < 0.16 ? 1.6 : 0.35) * dt); else v.multiplyScalar(1 - 0.05 * dt);   // 느릴 땐 흙 마찰로 금방 선다
-  if (v.length() > 9) v.setLength(9);
+  if (grounded) v.multiplyScalar(1 - (v.lengthSq() < 0.09 ? 2.2 : 0.6) * dt); else v.multiplyScalar(1 - 0.05 * dt);   // 느릴 땐 흙 마찰로 금방 선다
+  if (v.length() > 4.2) v.setLength(4.2);
   // 동굴 밖으로 못 나가게
   if (p.z > 11.8) { p.z = 11.8; if (v.z > 0) v.z *= -0.3; }
   if (p.z < -6.8) { p.z = -6.8; if (v.z < 0) v.z *= -0.3; }
@@ -427,6 +429,19 @@ function initAudio() {
   } catch (_) { actx = null; }
 }
 function tone(f, t0, dur, vol, type = 'sine') { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05); }
+// ---------- 햅틱 ----------
+// 안드로이드: navigator.vibrate / 아이폰(iOS 18+): 스위치 체크박스를 누를 때 나는 시스템 햅틱을 빌린다
+const hapLbl = (() => { const l = document.createElement('label'); l.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;opacity:0;pointer-events:none'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); document.body.appendChild(l); return l; })();
+let hapLast = 0;
+function haptic(ms, gap = 40) {
+  const t = performance.now(); if (t - hapLast < gap) return; hapLast = t;
+  if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (_) {} } else { try { hapLbl.click(); } catch (_) {} }
+}
+let rumbleT = 0;
+function rumble(dt) {   // 굴러갈 때 오돌토돌한 흙 느낌: 빠를수록 촘촘히
+  const sp = grounded ? Math.hypot(v.x, v.z) : 0; if (sp < 0.6) { rumbleT = 0; return; }
+  rumbleT += dt * sp * 2.2; if (rumbleT >= 1) { rumbleT = 0; haptic(Math.round(4 + sp * 2), 60); }
+}
 function hit(s) { if (!actx) return; const t = actx.currentTime, v = Math.min(0.25, s * 0.06); tone(1900 + Math.random() * 500, t, 0.12, v, 'triangle'); tone(3300, t, 0.06, v * 0.4); }
 function chime() { if (!actx) return; const t = actx.currentTime; [880, 1320, 1760].forEach((f, i) => tone(f, t + i * 0.07, 0.5, 0.12)); }
 
@@ -438,7 +453,7 @@ function newGame() { relicIdx = 0; foundEl.textContent = 0; placeRelic(); resetB
 function showToast(t) { const el = document.getElementById('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(showToast.h); showToast.h = setTimeout(() => el.classList.remove('show'), 2200); }
 function collect() {
   chime(); relicIdx++; foundEl.textContent = relicIdx;
-  if (navigator.vibrate) try { navigator.vibrate(30); } catch (_) {}
+  if (navigator.vibrate) { try { navigator.vibrate([25, 50, 25, 50, 60]); } catch (_) {} } else { haptic(0, 0); setTimeout(() => haptic(0, 0), 90); setTimeout(() => haptic(0, 0), 180); }
   if (relicIdx >= SPOTS.length) {
     relic.visible = false; done = true;
     const key = 'cave-best', best = parseFloat(localStorage.getItem(key) || 'Infinity');
@@ -472,19 +487,22 @@ function frame(now) {
   if (useGyro) gT.copy(sensor);
   else { const sx = drag.on ? drag.x : kx * 0.8, sz = drag.on ? drag.z : kz * 0.8; const a = Math.sin(MAX_TILT); gT.set(sx * a, -1, sz * a).normalize(); }
   if (!started) gT.copy(DOWN);
-  gNow.lerp(gT, useGyro ? Math.min(1, dt * 40) : Math.min(1, dt * 14)).normalize();
-  gEff.copy(gNow).multiplyScalar(9.8);
+  gNow.lerp(gT, Math.min(1, dt * (useGyro ? 9 : 8))).normalize();
+  gEff.copy(gNow);
+  { const hz = Math.hypot(gEff.x, gEff.z); const k = hz < DEAD ? 0 : (hz - DEAD) / hz; gEff.x *= k; gEff.z *= k; }
+  gEff.multiplyScalar(GRAV);
   if (started && !done) {
     acc += dt; let impact = 0; const h = 1 / 240;
     while (acc >= h) { impact = Math.max(impact, step(h)); acc -= h; }
-    if (impact > 0.6) hit(impact);
+    if (impact > 0.6) { hit(impact); haptic(Math.round(Math.min(45, 10 + impact * 12)), 0); }
+    rumble(dt);
     tNow = (now - tStart) / 1000; timeEl.textContent = tNow.toFixed(2);
     if (relic.visible && p.distanceTo(relic.position) < BR + 0.14) collect();
   }
   // 구르는 회전
   if (grounded) { axis.set(0, 1, 0).cross(v); const sp = axis.length(); if (sp > 1e-4) { rq.setFromAxisAngle(axis.divideScalar(sp), sp * dt / BR); ball.quaternion.premultiply(rq); } }
   ball.position.copy(p);
-  if (rollGain && actx) { const s = grounded ? Math.min(1, Math.hypot(v.x, v.z) / 4) : 0; rollGain.gain.setTargetAtTime(s * 0.35, actx.currentTime, 0.05); rollFilt.frequency.setTargetAtTime(180 + s * 700, actx.currentTime, 0.05); }
+  if (rollGain && actx) { const s = grounded ? Math.min(1, Math.hypot(v.x, v.z) / 3) : 0; rollGain.gain.setTargetAtTime(s * 0.35, actx.currentTime, 0.05); rollFilt.frequency.setTargetAtTime(180 + s * 700, actx.currentTime, 0.05); }
   // 유물 반짝
   coin.rotation.z = now / 600; relic.children[0].position.y = Math.sin(now / 400) * 0.03; glow.intensity = 1.3 + Math.sin(now / 250) * 0.4;
   // 먼지
