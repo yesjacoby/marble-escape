@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b0c0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>동굴 발굴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{--ink:#ece8e1;--dim:#9c978e;--panel:rgba(14,13,12,.72);--line:rgba(236,232,225,.18);--gold:#e9c46a;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,sans-serif;--f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;color-scheme:dark}
+html,body{height:100%;margin:0;overflow:hidden;background:#0b0c0c;color:var(--ink);font-family:var(--f-body);
+  touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(0,0,0,.55))}
+.hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;justify-content:space-between;pointer-events:none}
+.tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+.big{font-family:var(--f-mono);font-size:22px;font-variant-numeric:tabular-nums}
+.big b{color:var(--gold);font-weight:500}
+.bar{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:16px;right:16px;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
+.hint{font-size:13px;color:var(--dim);text-align:center;text-wrap:balance}
+.btns{display:flex;gap:8px;pointer-events:auto}
+button{font:600 14px var(--f-body);color:var(--ink);background:var(--panel);border:1px solid var(--line);padding:10px 14px;border-radius:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button.primary{background:var(--gold);color:#1b1608;border-color:var(--gold);font-size:17px;padding:14px 28px}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:rgba(5,5,5,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.card{max-width:340px;width:100%;background:var(--panel);border:1px solid var(--line);padding:26px 22px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.card h1,.card h2{font-weight:600;margin:0;line-height:1.1;text-wrap:balance}
+.card h1{font-size:34px}.card h2{font-size:28px;color:var(--gold)}
+.card p{margin:0;font-size:14px;line-height:1.6;color:var(--dim)}
+.load{font-family:var(--f-mono);font-size:12px;color:var(--dim)}
+#joy{position:fixed;width:110px;height:110px;margin:-55px 0 0 -55px;border:1px solid var(--line);border-radius:50%;pointer-events:none}
+#joy b{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--ink);opacity:.4}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%);max-width:calc(100% - 32px);width:max-content;
+  background:var(--panel);border:1px solid var(--gold);padding:10px 16px;font-size:14px;text-align:center;pointer-events:none;opacity:0;transition:opacity .3s}
+#toast.show{opacity:1}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="동굴 발굴 현장"></canvas>
+<div class="vig"></div>
+<div class="hud">
+  <div><div class="tag">유물</div><div class="big"><b id="found">0</b> / <span id="total">6</span></div></div>
+  <div style="text-align:right"><div class="tag">시간</div><div class="big" id="time">0.00</div></div>
+</div>
+<div class="bar">
+  <div class="hint" id="hint">폰을 기울여 쇠구슬을 굴리세요</div>
+  <div class="btns">
+    <button id="calib" type="button" hidden>지금 각도를 수평으로</button>
+    <button id="restart" type="button">처음부터</button>
+  </div>
+</div>
+<div id="joy" hidden><b></b></div>
+<div id="toast" role="status"></div>
+<div class="overlay" id="startOv">
+  <div class="card">
+    <div class="tag">발굴 현장</div>
+    <h1>동굴 발굴</h1>
+    <p>동굴 속 발굴 현장에 금빛 유물이 하나씩 빛나요. 폰을 기울여 쇠구슬을 굴려서 유물에 닿게 하세요. 구덩이 위 나무판을 건너야 하는 것도 있어요.</p>
+    <p>폰을 편하게 든 각도가 수평이 돼요. 센서가 없으면 화면을 끌거나 방향키를 쓰세요.</p>
+    <div class="load" id="load">불러오는 중…</div>
+    <button class="primary" id="startBtn" type="button" disabled>시작하기</button>
+  </div>
+</div>
+<div class="overlay" id="winOv" hidden>
+  <div class="card">
+    <div class="tag">발굴 완료</div>
+    <h2>유물을 모두 찾았어요</h2>
+    <div class="big" style="font-size:16px">기록 <span id="winTime">0.00</span>초 · 최고 <span id="winBest">-</span></div>
+    <button class="primary" id="againBtn" type="button">다시 하기</button>
+  </div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+
+// ---------- 기본 ----------
+const BR = 0.15;                          // 쇠구슬 반지름 (m)
+const MAX_TILT = THREE.MathUtils.degToRad(28);
+const PIT = { x: 0, z: 3.2, hx: 1.6, hz: 1.1, d: 0.42 };
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0xb9bcb7, 0.05);
+scene.background = new THREE.Color(0xc9ccc6);   // 입구 밖은 짙은 안개
+const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 200);
+
+const mgr = new THREE.LoadingManager();
+const texL = new THREE.TextureLoader(mgr);
+function pbr(name, rx, ry, extra = {}) {
+  const load = (m, srgb) => { const t = texL.load(`tex/${name}_${m}.jpg`); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+  return new THREE.MeshStandardMaterial({ map: load('diff', true), normalMap: load('nor_gl'), roughnessMap: load('rough'), roughness: 1, ...extra });
+}
+let envTex = null;
+new RGBELoader(mgr).load('tex/misty_pines_1k.hdr', t => {
+  t.mapping = THREE.EquirectangularReflectionMapping;
+  
+  const pm = new THREE.PMREMGenerator(renderer); envTex = pm.fromEquirectangular(t).texture; scene.environment = envTex;
+});
+
+// ---------- 지형 ----------
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function pitMask(x, z) {
+  const x0 = PIT.x - PIT.hx, x1 = PIT.x + PIT.hx, z0 = PIT.z - PIT.hz, z1 = PIT.z + PIT.hz;
+  const sx = Math.min(sstep(x0, x0 + 1.1, x), sstep(x1, x1 - 0.12, x));   // 왼쪽은 완만한 비탈, 나머지는 가파른 벽
+  const sz = Math.min(sstep(z0, z0 + 0.12, z), sstep(z1, z1 - 0.12, z));
+  return Math.min(sx, sz);
+}
+function H(x, z) {
+  let h = 0.1 * Math.sin(x * 0.9 + 0.3) * Math.cos(z * 0.7) + 0.05 * Math.sin(x * 2.1 + z * 1.7) + 0.025 * Math.sin(z * 4.1 - x * 2.3);
+  const ax = Math.abs(x); if (ax > 3.6) h += 0.16 * (ax - 3.6) ** 2;
+  if (z < -5.5) h += 0.35 * (-5.5 - z) ** 2;
+  h -= PIT.d * pitMask(x, z);
+  return h;
+}
+const nrm = new THREE.Vector3();
+function normalAt(x, z, out) { const e = 0.02; return out.set(H(x - e, z) - H(x + e, z), 2 * e, H(x, z - e) - H(x, z + e)).normalize(); }
+
+const groundGeo = new THREE.PlaneGeometry(16, 60, 200, 560); groundGeo.rotateX(-Math.PI / 2); groundGeo.translate(0, 0, 18);
+{
+  const pos = groundGeo.attributes.position, col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i); pos.setY(i, H(x, z));
+    const m = pitMask(x, z), k = 1 - 0.32 * m;           // 구덩이 안쪽은 축축하게 조금 더 어둡게
+    col[i * 3] = k; col[i * 3 + 1] = k * 0.97; col[i * 3 + 2] = k * 0.94;
+  }
+  groundGeo.setAttribute('color', new THREE.BufferAttribute(col, 3)); groundGeo.computeVertexNormals();
+}
+const ground = new THREE.Mesh(groundGeo, pbr('stony_dirt_path', 8, 30, { vertexColors: true, envMapIntensity: 0.25 }));
+ground.receiveShadow = true; scene.add(ground);
+
+// ---------- 동굴 껍데기: 길쭉한 구를 울퉁불퉁하게, 앞쪽은 뚫어서 입구 ----------
+function hash(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); }
+function vnoise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  const L = (a, b, t) => a + (b - a) * t;
+  return L(L(L(hash(xi, yi, zi), hash(xi + 1, yi, zi), u), L(hash(xi, yi + 1, zi), hash(xi + 1, yi + 1, zi), u), v),
+           L(L(hash(xi, yi, zi + 1), hash(xi + 1, yi, zi + 1), u), L(hash(xi, yi + 1, zi + 1), hash(xi + 1, yi + 1, zi + 1), u), v), w);
+}
+const fbm = (x, y, z) => vnoise(x, y, z) * 0.55 + vnoise(x * 2.3, y * 2.3, z * 2.3) * 0.3 + vnoise(x * 5.1, y * 5.1, z * 5.1) * 0.15;
+{
+  const g = new THREE.SphereGeometry(1, 160, 110);
+  const pos = g.attributes.position, idx = g.index.array, keep = [];
+  const P = [];
+  for (let i = 0; i < pos.count; i++) {
+    const dx = pos.getX(i), dy = pos.getY(i), dz = pos.getZ(i);
+    const n = fbm(dx * 3 + 10, dy * 3, dz * 3);
+    const r = 1 + (n - 0.5) * 0.28;
+    const x = dx * 6.2 * r, y = dy * 4.6 * r + 1.0, z = dz * 13 * (1 + (n - 0.5) * 0.06) + 2;
+    pos.setXYZ(i, x, y, z); P.push(z, dx, dy);
+  }
+  void keep; void idx; g.computeVertexNormals();
+  const caveMat = pbr('rock_face', 10, 6, { side: THREE.BackSide, envMapIntensity: 0.18, color: 0xcfc5b6 });
+  // 입구: 앞쪽 끝을 픽셀 단위로 들쭉날쭉하게 뚫는다
+  caveMat.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <project_vertex>', '#include <project_vertex>\nvWp = (modelMatrix*vec4(transformed,1.)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('void main() {',
+      'void main() {\n float lim = 12.0 + 0.55*sin(vWp.x*1.7+0.5)*cos(vWp.y*1.3) + 0.3*sin(vWp.x*4.3 - vWp.y*3.1) + 0.12*sin(vWp.y*9.0+vWp.x*7.0);\n if (vWp.z > lim && vWp.y > -0.4) discard;');
+  };
+  const cave = new THREE.Mesh(g, caveMat);
+  cave.receiveShadow = true; scene.add(cave);
+}
+
+// ---------- 소품 ----------
+const colliders = { boxes: [], cyl: [], sph: [] };
+const wood = pbr('rough_wood', 3, 0.3, { envMapIntensity: 0.3 });
+// 구덩이를 가로지르는 나무판 (다리)
+const PL = { x0: -2.3, x1: 2.3, z: 3.2, w: 0.34, t: 0.06 };
+const plankY = Math.max(H(PL.x0, PL.z), H(PL.x1, PL.z), H(PL.x0 + 0.6, PL.z), H(PL.x1 - 0.6, PL.z)) + 0.005;
+{
+  const m = new THREE.Mesh(new THREE.BoxGeometry(PL.x1 - PL.x0, PL.t, PL.w), wood);
+  m.position.set((PL.x0 + PL.x1) / 2, plankY + PL.t / 2, PL.z); m.castShadow = m.receiveShadow = true; scene.add(m);
+  colliders.boxes.push(new THREE.Box3(new THREE.Vector3(PL.x0, plankY - 0.4, PL.z - PL.w / 2), new THREE.Vector3(PL.x1, plankY + PL.t, PL.z + PL.w / 2)));
+  // 앞쪽 가장자리에 하나 더 (사진처럼 길게)
+  const m2 = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.07, 0.3), wood);
+  const y2 = Math.max(H(-2.3, 1.85), H(2.3, 1.85), H(0, 1.85)) + 0.005;
+  m2.position.set(0.1, y2 + 0.035, 1.85); m2.rotation.y = 0.04; m2.castShadow = m2.receiveShadow = true; scene.add(m2);
+  colliders.boxes.push(new THREE.Box3(new THREE.Vector3(-2.2, y2 - 0.3, 1.7), new THREE.Vector3(2.4, y2 + 0.07, 2.0)));
+}
+// 발굴 줄 격자와 말뚝
+{
+  const pts = [], sy = 0.32, x0 = PIT.x - PIT.hx - 0.15, x1 = PIT.x + PIT.hx + 0.15, z0 = PIT.z - PIT.hz - 0.15, z1 = PIT.z + PIT.hz + 0.15;
+  const gy = (x, z) => Math.max(H(x, z), 0) + sy;
+  for (let i = 0; i <= 3; i++) { const x = x0 + (x1 - x0) * i / 3; pts.push(x, gy(x, z0), z0, x, gy(x, z1), z1); }
+  for (let j = 0; j <= 2; j++) { const z = z0 + (z1 - z0) * j / 2; pts.push(x0, gy(x0, z), z, x1, gy(x1, z), z); }
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0xe8e2d4, transparent: true, opacity: 0.85 })));
+  const stakeM = new THREE.MeshStandardMaterial({ color: 0x8a6a45, roughness: 0.8 });
+  for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) / 2, z0], [(x0 + x1) / 2, z1], [x0, PIT.z], [x1, PIT.z]]) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.03, sy + 0.1, 0.03), stakeM); s.position.set(x, H(x, z) + (sy + 0.1) / 2 - 0.05, z); s.castShadow = true; scene.add(s);
+  }
+}
+// 양동이
+{
+  const bm = new THREE.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.45, metalness: 0.1, side: THREE.DoubleSide, envMapIntensity: 0.6 });
+  const dirt = new THREE.MeshStandardMaterial({ color: 0x5b4a39, roughness: 1 });
+  for (const [x, z, r] of [[2.35, 4.95, 0.27], [3.0, 5.55, 0.25]]) {
+    const y = H(x, z);
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.82, 0.42, 32, 1, true), bm); b.position.set(x, y + 0.21, z); b.castShadow = b.receiveShadow = true; scene.add(b);
+    const bot = new THREE.Mesh(new THREE.CircleGeometry(r * 0.82, 24), bm); bot.rotation.x = -Math.PI / 2; bot.position.set(x, y + 0.01, z); scene.add(bot);
+    const fill = new THREE.Mesh(new THREE.CircleGeometry(r * 0.97, 24), dirt); fill.rotation.x = -Math.PI / 2; fill.position.set(x, y + 0.36, z); scene.add(fill);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 6, 40), bm); rim.rotation.x = Math.PI / 2; rim.position.set(x, y + 0.42, z); scene.add(rim);
+    colliders.cyl.push({ x, z, r, top: y + 0.42 });
+  }
+}
+// 파란 상자
+{
+  const x = -3.3, z = 5.2, y = H(x, z) - 0.03;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.42, 0.48), new THREE.MeshStandardMaterial({ color: 0x5c86a8, roughness: 0.7 }));
+  m.position.set(x, y + 0.21, z); m.rotation.y = 0.25; m.castShadow = m.receiveShadow = true; scene.add(m);
+  colliders.cyl.push({ x, z, r: 0.36, top: y + 0.42 });
+}
+// 바위들
+{
+  const rockM = pbr('rock_face', 1, 1, { envMapIntensity: 0.2, color: 0xbdb2a2 });
+  const rng = (() => { let a = 99; return () => { a = (a * 16807) % 2147483647; return a / 2147483647; }; })();
+  for (let i = 0; i < 16; i++) {
+    const side = i % 2 ? 1 : -1, x = side * (3.0 + rng() * 1.4), z = -4.5 + rng() * 15, r = 0.15 + rng() * 0.35;
+    const g = new THREE.IcosahedronGeometry(r, 2); const p = g.attributes.position;
+    for (let k = 0; k < p.count; k++) { const s = 1 + (fbm(p.getX(k) * 4 + i, p.getY(k) * 4, p.getZ(k) * 4) - 0.5) * 0.6; p.setXYZ(k, p.getX(k) * s, p.getY(k) * s * 0.75, p.getZ(k) * s); }
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, rockM); const y = H(x, z) + r * 0.25; m.position.set(x, y, z); m.rotation.set(rng() * 3, rng() * 3, rng() * 3);
+    m.castShadow = m.receiveShadow = true; scene.add(m); colliders.sph.push({ c: new THREE.Vector3(x, y, z), r: r * 0.85 });
+  }
+}
+// 삼각대 작업등
+const beams = [];
+function lamp(x, z, aim) {
+  const y0 = H(x, z), top = new THREE.Vector3(x, y0 + 2.15, z);
+  const metal = new THREE.MeshStandardMaterial({ color: 0x9a9a96, metalness: 0.8, roughness: 0.35 });
+  const legM = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.5, roughness: 0.5 });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 1.6, 10), metal); pole.position.set(x, y0 + 1.35, z); pole.castShadow = true; scene.add(pole);
+  for (let k = 0; k < 3; k++) {
+    const a = k * 2.094 + 0.4, fx = x + Math.cos(a) * 0.55, fz = z + Math.sin(a) * 0.55, foot = new THREE.Vector3(fx, H(fx, fz), fz), hip = new THREE.Vector3(x, y0 + 0.75, z);
+    const len = foot.distanceTo(hip), leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, len, 8), legM);
+    leg.position.copy(foot).add(hip).multiplyScalar(0.5); leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), hip.clone().sub(foot).normalize()); leg.castShadow = true; scene.add(leg);
+  }
+  const head = new THREE.Group(); head.position.copy(top); head.lookAt(aim); scene.add(head);
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.26, 0.08), new THREE.MeshStandardMaterial({ color: 0x232323, roughness: 0.4, metalness: 0.4 })); housing.castShadow = true; head.add(housing);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.22), new THREE.MeshBasicMaterial({ color: 0xfff6e6 })); face.position.z = 0.041; head.add(face);
+  const spot = new THREE.SpotLight(0xfff1dc, 260, 0, 0.62, 0.55, 2);
+  spot.position.copy(top); spot.target.position.copy(aim); spot.castShadow = true; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -0.0004; spot.shadow.normalBias = 0.02;
+  spot.shadow.camera.near = 0.2; spot.shadow.camera.far = 14; scene.add(spot, spot.target);
+  // 빛줄기 (먼지 낀 공기)
+  const len = 4.2, cg = new THREE.ConeGeometry(Math.tan(0.62) * len, len, 40, 1, true); cg.translate(0, -len / 2, 0); cg.rotateX(-Math.PI / 2);
+  const beam = new THREE.Mesh(cg, new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { len: { value: len } },
+    vertexShader: `varying float vD; varying vec3 vN; varying vec3 vV; void main(){ vD = position.z; vec4 mv = modelViewMatrix*vec4(position,1.); vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: `uniform float len; varying float vD; varying vec3 vN; varying vec3 vV; void main(){ float t = clamp(vD/len,0.,1.); float edge = pow(abs(dot(vN,vV)),1.6); float a = (1.-t)*(1.-t)*edge*0.16; gl_FragColor = vec4(vec3(1.,.96,.88)*a, a); }`
+  }));
+  beam.position.copy(top); beam.lookAt(aim); scene.add(beam); beams.push(beam);
+  colliders.cyl.push({ x, z, r: 0.42, top: y0 + 2.2 });
+}
+lamp(-3.0, 1.2, new THREE.Vector3(0.2, -0.2, 3.4));
+lamp(3.35, 6.1, new THREE.Vector3(-0.3, -0.2, 3.0));
+// 입구에서 들어오는 흐린 빛
+const sky = new THREE.DirectionalLight(0xdfe5e6, 1.3); sky.position.set(1, 6, 26); sky.target.position.set(0, 0, 2);
+sky.castShadow = true; sky.shadow.mapSize.set(1024, 1024); Object.assign(sky.shadow.camera, { left: -7, right: 7, top: 7, bottom: -7, near: 1, far: 40 }); sky.shadow.bias = -0.0005;
+scene.add(sky, sky.target);
+scene.add(new THREE.HemisphereLight(0xbfc6c8, 0x2a2420, 0.18));
+// 입구 밖: 안개 속 구불구불한 나무 실루엣
+{
+  function treeTex(seed) {
+    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 512; const g = cv.getContext('2d');
+    let a = seed; const r = () => { a = (a * 16807) % 2147483647; return a / 2147483647; };
+    g.strokeStyle = g.fillStyle = '#fff'; g.lineCap = 'round';
+    function br(x, y, ang, len, w, d) {
+      const x2 = x + Math.cos(ang) * len, y2 = y - Math.sin(ang) * len;
+      g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo((x + x2) / 2 + (r() - 0.5) * len * 0.5, (y + y2) / 2, x2, y2); g.stroke();
+      if (d <= 0 || w < 2) { for (let k = 0; k < 6; k++) { g.beginPath(); g.ellipse(x2 + (r() - 0.5) * 40, y2 + (r() - 0.5) * 22, 18 + r() * 26, 9 + r() * 12, 0, 0, 7); g.fill(); } return; }
+      const n = 2 + (r() < 0.4 ? 1 : 0);
+      for (let k = 0; k < n; k++) br(x2, y2, ang + (r() - 0.5) * 1.6 + (k - (n - 1) / 2) * 0.5, len * (0.62 + r() * 0.2), w * 0.62, d - 1);
+    }
+    br(256, 512, Math.PI / 2 + (r() - 0.5) * 0.3, 150, 26, 5);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  const texs = [treeTex(11), treeTex(42), treeTex(777)];
+  const rr = (() => { let a = 5; return () => { a = (a * 16807) % 2147483647; return a / 2147483647; }; })();
+  for (let i = 0; i < 14; i++) {
+    const x = (rr() - 0.5) * 22, z = 15 + rr() * 16, s = 4 + rr() * 3;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(s, s), new THREE.MeshBasicMaterial({ color: 0x2c2f2b, alphaMap: texs[i % 3], transparent: true, alphaTest: 0.4, depthWrite: true, side: THREE.DoubleSide }));
+    m.position.set(x, H(x, z) + s / 2 - 0.1, z); m.rotation.y = Math.PI + (rr() - 0.5) * 0.3; if (rr() < 0.5) m.scale.x = -1; scene.add(m);
+  }
+}
+// 떠다니는 먼지
+const dust = (() => {
+  const n = 500, p = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { p[i * 3] = (Math.random() - 0.5) * 7; p[i * 3 + 1] = Math.random() * 3; p[i * 3 + 2] = Math.random() * 9 - 1; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const m = new THREE.PointsMaterial({ color: 0xfff3dd, size: 0.012, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
+  const pts = new THREE.Points(g, m); scene.add(pts); return pts;
+})();
+
+// ---------- 쇠구슬 ----------
+const ball = new THREE.Mesh(new THREE.SphereGeometry(BR, 48, 32), new THREE.MeshStandardMaterial({ color: 0xd6d8dc, metalness: 1, roughness: 0.12, envMapIntensity: 0.9 }));
+ball.castShadow = true; scene.add(ball);
+
+// ---------- 유물 ----------
+const SPOTS = [
+  [0.0, 'plank'],            // 나무판 한가운데
+  [1.0, 4.0, 'pit'],         // 구덩이 바닥
+  [-3.0, 7.2],               // 왼쪽 안쪽
+  [2.7, -2.4],               // 뒤쪽 오른편
+  [0.4, 10.8],               // 입구 근처
+  [-0.9, 2.6, 'pit'],
+];
+const relic = new THREE.Group(); scene.add(relic);
+const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.02, 32), new THREE.MeshStandardMaterial({ color: 0xe9c46a, metalness: 1, roughness: 0.25, emissive: 0x5a3f08, emissiveIntensity: 0.6 }));
+coin.rotation.x = Math.PI / 2; coin.castShadow = true; relic.add(coin);
+const glow = new THREE.PointLight(0xffd27a, 1.6, 2.2, 2); glow.position.y = 0.15; relic.add(glow);
+const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.12, 2.4, 16, 1, true), new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  vertexShader: `varying float vY; void main(){ vY = uv.y; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: `varying float vY; void main(){ float a = (1.-vY)*0.22; gl_FragColor = vec4(vec3(1.,.82,.45)*a, a); }`
+}));
+pillar.position.y = 1.2; relic.add(pillar);
+let relicIdx = 0;
+function placeRelic() {
+  const s = SPOTS[relicIdx];
+  if (s[1] === 'plank') relic.position.set(s[0], plankY + PL.t + 0.1, PL.z);
+  else relic.position.set(s[0], H(s[0], s[1]) + 0.1, s[1]);
+  relic.visible = true;
+}
+
+// ---------- 물리 ----------
+const p = new THREE.Vector3(), v = new THREE.Vector3(), gEff = new THREE.Vector3(0, -9.8, 0);
+const tmp = new THREE.Vector3(), cp = new THREE.Vector3();
+const START = new THREE.Vector3(0, 0, -1.8);
+let grounded = 0;
+function collideBox(b) {
+  cp.set(Math.max(b.min.x, Math.min(p.x, b.max.x)), Math.max(b.min.y, Math.min(p.y, b.max.y)), Math.max(b.min.z, Math.min(p.z, b.max.z)));
+  tmp.copy(p).sub(cp); const d = tmp.length(); if (d >= BR) return 0;
+  if (d < 1e-6) tmp.set(0, 1, 0); else tmp.divideScalar(d);
+  p.copy(cp).addScaledVector(tmp, BR); const vn = v.dot(tmp);
+  if (vn < 0) { v.addScaledVector(tmp, -(1 + (-vn > 1 ? 0.3 : 0)) * vn); if (tmp.y > 0.6) grounded = 1; return -vn; }
+  return 0;
+}
+function step(dt) {
+  let impact = 0; grounded = 0;
+  // 구르는 공은 경사 방향 가속이 5/7
+  v.addScaledVector(gEff, dt * 5 / 7);
+  p.addScaledVector(v, dt);
+  // 땅
+  const h = H(p.x, p.z); normalAt(p.x, p.z, nrm);
+  const d = (p.y - h) * nrm.y;
+  if (d < BR) {
+    p.addScaledVector(nrm, BR - d);
+    const vn = v.dot(nrm);
+    if (vn < 0) { const e = -vn > 1.2 ? 0.25 : 0; v.addScaledVector(nrm, -(1 + e) * vn); impact = Math.max(impact, -vn); }
+    grounded = 1;
+  }
+  for (const b of colliders.boxes) impact = Math.max(impact, collideBox(b));
+  for (const c of colliders.cyl) {
+    if (p.y - BR > c.top) continue;
+    const dx = p.x - c.x, dz = p.z - c.z, dd = Math.hypot(dx, dz), m = c.r + BR;
+    if (dd < m) { const nx = dx / dd, nz = dz / dd; p.x = c.x + nx * m; p.z = c.z + nz * m; const vn = v.x * nx + v.z * nz; if (vn < 0) { v.x -= 1.3 * vn * nx; v.z -= 1.3 * vn * nz; impact = Math.max(impact, -vn); } }
+  }
+  for (const s of colliders.sph) {
+    tmp.copy(p).sub(s.c); const dd = tmp.length(), m = s.r + BR;
+    if (dd < m) { tmp.divideScalar(dd); p.copy(s.c).addScaledVector(tmp, m); const vn = v.dot(tmp); if (vn < 0) { v.addScaledVector(tmp, -1.3 * vn); impact = Math.max(impact, -vn); } }
+  }
+  // 굴림 저항 + 공기
+  if (grounded) v.multiplyScalar(1 - (v.lengthSq() < 0.16 ? 1.6 : 0.35) * dt); else v.multiplyScalar(1 - 0.05 * dt);   // 느릴 땐 흙 마찰로 금방 선다
+  if (v.length() > 9) v.setLength(9);
+  // 동굴 밖으로 못 나가게
+  if (p.z > 11.8) { p.z = 11.8; if (v.z > 0) v.z *= -0.3; }
+  if (p.z < -6.8) { p.z = -6.8; if (v.z < 0) v.z *= -0.3; }
+  if (Math.abs(p.x) > 4.9) { p.x = Math.sign(p.x) * 4.9; if (v.x * p.x > 0) v.x *= -0.3; }
+  if (p.y < -3) resetBall();
+  return impact;
+}
+function resetBall() { p.copy(START); p.y = H(START.x, START.z) + BR + 0.3; v.set(0, 0, 0); }
+
+// ---------- 입력 (실제 중력 방향) ----------
+let started = false, hasGyro = false, base = false;
+const sensor = new THREE.Vector3(0, -1, 0), gDev = new THREE.Vector3(), qBase = new THREE.Quaternion(), DEV_DOWN = new THREE.Vector3(0, 0, -1), DOWN = new THREE.Vector3(0, -1, 0);
+const drag = { on: false, x: 0, z: 0 }, held = new Set();
+addEventListener('deviceorientation', e => {
+  if (e.beta == null || e.gamma == null) return;
+  if (!hasGyro) { hasGyro = true; updateHint(); }
+  const b = THREE.MathUtils.degToRad(e.beta), g = THREE.MathUtils.degToRad(e.gamma);
+  gDev.set(Math.cos(b) * Math.sin(g), -Math.sin(b), -Math.cos(b) * Math.cos(g));
+  if (!base) { base = true; qBase.setFromUnitVectors(gDev, DEV_DOWN); }
+  gDev.applyQuaternion(qBase);
+  // 카메라는 +z(입구)를 본다: 화면 오른쪽 = -x, 화면 위 = +z
+  sensor.set(-gDev.x, gDev.z, gDev.y).normalize();
+  const ang = sensor.angleTo(DOWN);
+  if (ang > MAX_TILT * 1.6) { tmp.set(sensor.x, 0, sensor.z).normalize(); const a = MAX_TILT * 1.6; sensor.copy(DOWN).multiplyScalar(Math.cos(a)).addScaledVector(tmp, Math.sin(a)); }
+});
+const joy = document.getElementById('joy'), knob = joy.querySelector('b'); let ds = null;
+canvas.addEventListener('pointerdown', e => { if (!started) return; ds = { x: e.clientX, y: e.clientY, id: e.pointerId }; drag.on = true; drag.x = drag.z = 0; canvas.setPointerCapture(e.pointerId); joy.style.left = e.clientX + 'px'; joy.style.top = e.clientY + 'px'; joy.hidden = false; knob.style.transform = ''; });
+canvas.addEventListener('pointermove', e => { if (!ds || e.pointerId !== ds.id) return; let dx = e.clientX - ds.x, dy = e.clientY - ds.y; const m = Math.hypot(dx, dy), lim = 55; if (m > lim) { dx *= lim / m; dy *= lim / m; } knob.style.transform = `translate(${dx}px,${dy}px)`; drag.x = -dx / lim; drag.z = -dy / lim; });
+const endDrag = e => { if (ds && e.pointerId === ds.id) { ds = null; drag.on = false; joy.hidden = true; } };
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+addEventListener('keydown', e => { if (e.key.startsWith('Arrow')) { held.add(e.key); e.preventDefault(); } });
+addEventListener('keyup', e => held.delete(e.key));
+function updateHint() {
+  document.getElementById('hint').textContent = hasGyro ? '폰을 기울여 굴리세요 · 화면을 끌어도 돼요' : '화면을 끌어서 굴리세요 · 키보드는 방향키';
+  document.getElementById('calib').hidden = !hasGyro;
+}
+
+// ---------- 소리: 굴러가는 소리 + 부딪힘 + 유물 ----------
+let actx = null, rollGain = null, rollFilt = null;
+function initAudio() {
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    const len = actx.sampleRate * 2, buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+    let last = 0; for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
+    const src = actx.createBufferSource(); src.buffer = buf; src.loop = true;
+    rollFilt = actx.createBiquadFilter(); rollFilt.type = 'lowpass'; rollFilt.frequency.value = 300;
+    rollGain = actx.createGain(); rollGain.gain.value = 0;
+    src.connect(rollFilt).connect(rollGain).connect(actx.destination); src.start();
+  } catch (_) { actx = null; }
+}
+function tone(f, t0, dur, vol, type = 'sine') { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05); }
+function hit(s) { if (!actx) return; const t = actx.currentTime, v = Math.min(0.25, s * 0.06); tone(1900 + Math.random() * 500, t, 0.12, v, 'triangle'); tone(3300, t, 0.06, v * 0.4); }
+function chime() { if (!actx) return; const t = actx.currentTime; [880, 1320, 1760].forEach((f, i) => tone(f, t + i * 0.07, 0.5, 0.12)); }
+
+// ---------- 진행 ----------
+const timeEl = document.getElementById('time'), foundEl = document.getElementById('found');
+document.getElementById('total').textContent = SPOTS.length;
+let tStart = 0, tNow = 0, done = false;
+function newGame() { relicIdx = 0; foundEl.textContent = 0; placeRelic(); resetBall(); tStart = performance.now(); tNow = 0; done = false; }
+function showToast(t) { const el = document.getElementById('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(showToast.h); showToast.h = setTimeout(() => el.classList.remove('show'), 2200); }
+function collect() {
+  chime(); relicIdx++; foundEl.textContent = relicIdx;
+  if (navigator.vibrate) try { navigator.vibrate(30); } catch (_) {}
+  if (relicIdx >= SPOTS.length) {
+    relic.visible = false; done = true;
+    const key = 'cave-best', best = parseFloat(localStorage.getItem(key) || 'Infinity');
+    let b = best; try { if (tNow < best) { localStorage.setItem(key, tNow); b = tNow; } } catch (_) {}
+    document.getElementById('winTime').textContent = tNow.toFixed(2); document.getElementById('winBest').textContent = isFinite(b) ? b.toFixed(2) + '초' : '-';
+    document.getElementById('winOv').hidden = false;
+  } else { placeRelic(); showToast(`유물 ${relicIdx}개 찾음 · 다음 금빛을 찾아가세요`); }
+}
+mgr.onLoad = () => { document.getElementById('load').textContent = '준비 완료'; document.getElementById('startBtn').disabled = false; };
+document.getElementById('startBtn').addEventListener('click', async () => {
+  try { if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) await DeviceOrientationEvent.requestPermission(); } catch (_) {}
+  if (!actx) initAudio(); else actx.resume();
+  base = false; started = true; document.getElementById('startOv').hidden = true; updateHint(); newGame();
+});
+document.getElementById('restart').addEventListener('click', () => { if (started) newGame(); });
+document.getElementById('calib').addEventListener('click', () => { base = false; showToast('지금 각도를 수평으로 잡았어요'); });
+document.getElementById('againBtn').addEventListener('click', () => { document.getElementById('winOv').hidden = true; newGame(); });
+
+// ---------- 화면 ----------
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w < h ? 62 : 50; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+resetBall(); placeRelic();
+const camPos = new THREE.Vector3(0, 1.6, -5.5), camLook = new THREE.Vector3(0, 0.3, 1), gNow = new THREE.Vector3(0, -1, 0), gT = new THREE.Vector3();
+const axis = new THREE.Vector3(), rq = new THREE.Quaternion();
+let last = performance.now(), acc = 0, frameN = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; frameN++;
+  // 목표 중력
+  const kx = (held.has('ArrowLeft') ? 1 : 0) - (held.has('ArrowRight') ? 1 : 0), kz = (held.has('ArrowUp') ? 1 : 0) - (held.has('ArrowDown') ? 1 : 0);
+  const useGyro = started && hasGyro && !drag.on && !(kx || kz);
+  if (useGyro) gT.copy(sensor);
+  else { const sx = drag.on ? drag.x : kx * 0.8, sz = drag.on ? drag.z : kz * 0.8; const a = Math.sin(MAX_TILT); gT.set(sx * a, -1, sz * a).normalize(); }
+  if (!started) gT.copy(DOWN);
+  gNow.lerp(gT, useGyro ? Math.min(1, dt * 40) : Math.min(1, dt * 14)).normalize();
+  gEff.copy(gNow).multiplyScalar(9.8);
+  if (started && !done) {
+    acc += dt; let impact = 0; const h = 1 / 240;
+    while (acc >= h) { impact = Math.max(impact, step(h)); acc -= h; }
+    if (impact > 0.6) hit(impact);
+    tNow = (now - tStart) / 1000; timeEl.textContent = tNow.toFixed(2);
+    if (relic.visible && p.distanceTo(relic.position) < BR + 0.14) collect();
+  }
+  // 구르는 회전
+  if (grounded) { axis.set(0, 1, 0).cross(v); const sp = axis.length(); if (sp > 1e-4) { rq.setFromAxisAngle(axis.divideScalar(sp), sp * dt / BR); ball.quaternion.premultiply(rq); } }
+  ball.position.copy(p);
+  if (rollGain && actx) { const s = grounded ? Math.min(1, Math.hypot(v.x, v.z) / 4) : 0; rollGain.gain.setTargetAtTime(s * 0.35, actx.currentTime, 0.05); rollFilt.frequency.setTargetAtTime(180 + s * 700, actx.currentTime, 0.05); }
+  // 유물 반짝
+  coin.rotation.z = now / 600; relic.children[0].position.y = Math.sin(now / 400) * 0.03; glow.intensity = 1.3 + Math.sin(now / 250) * 0.4;
+  // 먼지
+  dust.rotation.y = Math.sin(now / 9000) * 0.05; dust.position.y = Math.sin(now / 5000) * 0.08;
+  // 카메라: 공 뒤에서 입구 쪽을 본다
+  tmp.set(p.x * 0.6, Math.max(p.y, H(p.x, p.z - 3.2)) + 1.45, p.z - 3.4);
+  camPos.lerp(tmp, Math.min(1, dt * 3));
+  camLook.lerp(tmp.set(p.x * 0.8, p.y + 0.1, p.z + 2.2), Math.min(1, dt * 4));
+  camera.position.copy(camPos); camera.lookAt(camLook);
+  // 쇠구슬 반사 갱신 (몇 프레임마다)
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+updateHint();
+</script>
+</body>
+</html>
